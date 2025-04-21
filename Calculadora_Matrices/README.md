@@ -13,4 +13,4 @@ Este proyecto permite operar con matrices tanto en modo consola (`programa.py`) 
 - Ejecuta `interfaz.py` para usar la versión con interfaz gráfica.
 
 EJECUTAR PARA INSTALAR TODO:
-pip install -r requirements.txt
+pip install -r requeriments.txt

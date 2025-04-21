@@ -19,6 +19,8 @@ historial_operaciones = []
 entrada_actual = None
 
 # --- Funciones ---
+
+
 def generar_campos_matrices():
     for widget in matriz_frame.winfo_children():
         widget.destroy()
@@ -71,9 +73,142 @@ def generar_campos_matrices():
             fila_b.append(entry_b)
         matriz_b_entries.append(fila_b)
 
-# ... (mantén las funciones set_entrada_actual, mover_cursor, obtener_matriz, mostrar_resultado_en_tabla, 
-# ver_transpuesta, ver_inversa, ver_determinante, determinante_por_sarrus, intercambiar_matrices, 
-# actualizar_historial como están en tu código original)
+def mostrar_resultado_en_tabla(resultado):
+    for label in resultado_labels:
+        label.destroy()
+    resultado_labels.clear()
+
+    formato = formato_var.get()
+
+    def formatear(val):
+        if formato == "decimal":
+            return f"{val:.2f}"
+        elif formato == "entero":
+            return str(int(round(val)))
+        elif formato == "fracción":
+            return str(Fraction(val).limit_denominator())
+
+    if isinstance(resultado, (int, float, np.float64)):
+        label = ctk.CTkLabel(resultado_frame, text=f"Resultado: {formatear(resultado)}")
+        label.grid(row=0, column=0)
+        resultado_labels.append(label)
+        return
+
+    for i, fila in enumerate(resultado):
+        for j, val in enumerate(fila):
+            label = ctk.CTkLabel(resultado_frame, text=formatear(val), width=60)
+            label.grid(row=i, column=j, padx=5, pady=5)
+            resultado_labels.append(label)
+
+def mover_cursor(direccion):
+    global entrada_actual
+    if not entrada_actual:
+        return
+    matriz, fila, col = entrada_actual
+    if matriz == "A":
+        entries = matriz_a_entries
+    else:
+        entries = matriz_b_entries
+
+    max_fila = len(entries) - 1
+    max_col = len(entries[0]) - 1
+
+    if direccion == "arriba":
+        fila = max(0, fila - 1)
+    elif direccion == "abajo":
+        fila = min(max_fila, fila + 1)
+    elif direccion == "izquierda":
+        col = max(0, col - 1)
+    elif direccion == "derecha":
+        col = min(max_col, col + 1)
+
+    entrada_actual = (matriz, fila, col)
+    entries[fila][col].focus_set()
+
+def set_entrada_actual(matriz, fila, col):
+    global entrada_actual
+    entrada_actual = (matriz, fila, col)
+
+def obtener_matriz(entries):
+    matriz = []
+    for fila in entries:
+        valores = []
+        for entry in fila:
+            val = entry.get()
+            if val.strip() == "":
+                messagebox.showerror("Error", "Hay celdas vacías. Completa todos los campos.")
+                return None
+            try:
+                valores.append(float(val))
+            except ValueError:
+                messagebox.showerror("Error", f"Valor inválido: '{val}'")
+                return None
+        matriz.append(valores)
+    return np.array(matriz)
+
+def ver_transpuesta(matriz_id):
+    entries = matriz_a_entries if matriz_id == "A" else matriz_b_entries
+    matriz = obtener_matriz(entries)
+    if matriz is None:
+        return
+    transpuesta = matriz.T
+    mostrar_resultado_en_tabla(transpuesta)
+    actualizar_historial(f"Transpuesta de matriz {matriz_id}")
+
+def ver_inversa(matriz_id):
+    entries = matriz_a_entries if matriz_id == "A" else matriz_b_entries
+    matriz = obtener_matriz(entries)
+    if matriz is None:
+        return
+    if matriz.shape[0] != matriz.shape[1]:
+        messagebox.showerror("Error", f"La matriz {matriz_id} no es cuadrada, no se puede invertir.")
+        return
+    try:
+        inversa = np.linalg.inv(matriz)
+        mostrar_resultado_en_tabla(inversa)
+        actualizar_historial(f"Inversa de matriz {matriz_id}")
+    except np.linalg.LinAlgError:
+        messagebox.showerror("Error", f"La matriz {matriz_id} no tiene inversa.")
+
+def ver_determinante(matriz_id):
+    entries = matriz_a_entries if matriz_id == "A" else matriz_b_entries
+    matriz = obtener_matriz(entries)
+    if matriz is None:
+        return
+    if matriz.shape[0] != matriz.shape[1]:
+        messagebox.showerror("Error", "La matriz debe ser cuadrada para calcular el determinante.")
+        return
+    try:
+        if matriz.shape == (3, 3):
+            resultado = determinante_por_sarrus(matriz)
+            actualizar_historial(f"Determinante de matriz {matriz_id} (Sarrus)")
+        else:
+            resultado = np.linalg.det(matriz)
+            actualizar_historial(f"Determinante de matriz {matriz_id}")
+        mostrar_resultado_en_tabla(resultado)
+    except Exception as e:
+        messagebox.showerror("Error", str(e))
+
+def intercambiar_matrices():
+    A = obtener_matriz(matriz_a_entries)
+    B = obtener_matriz(matriz_b_entries)
+    if A is None or B is None:
+        return
+    if A.shape != B.shape:
+        messagebox.showerror("Error", "Las matrices deben tener las mismas dimensiones para intercambiar.")
+        return
+
+    for i in range(len(A)):
+        for j in range(len(A[0])):
+            matriz_a_entries[i][j].delete(0, 'end')
+            matriz_a_entries[i][j].insert(0, str(B[i][j]))
+            matriz_b_entries[i][j].delete(0, 'end')
+            matriz_b_entries[i][j].insert(0, str(A[i][j]))
+    actualizar_historial("Intercambio de matrices A y B")
+
+def actualizar_historial(texto):
+    historial_textbox.insert("end", texto + "\n")
+    historial_textbox.see("end")
 
 def multiplicar_por_escalar(matriz_id):
     entries = matriz_a_entries if matriz_id == "A" else matriz_b_entries
@@ -259,6 +394,10 @@ def determinante_por_sarrus(matriz, matriz_id="A"):
                  command=explicacion.destroy).pack(pady=10)
     
     return det
+
+def actualizar_historial(texto):
+    historial_textbox.insert("end", texto + "\n")
+    historial_textbox.see("end")
 
 def visualizar_sarrus(matriz):
     # Crear una imagen para mostrar las diagonales
